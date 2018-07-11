@@ -9,14 +9,11 @@
               @click=""
           >
             <v-list-tile-avatar>
-              <v-icon :color="td.done ? 'success' : 'secondary'">{{td.done ? 'check' : 'hourglass_empty'}}</v-icon>
+              <v-icon color="info">{{types[td.type].icon}}</v-icon>
             </v-list-tile-avatar>
 
             <v-list-tile-content>
               <v-list-tile-title>
-                <v-icon>
-                  {{types[td.type].icon}}
-                </v-icon>
                 <span>
                   {{td.title}}
                 </span>
@@ -34,8 +31,11 @@
               </v-list-tile-sub-title>
             </v-list-tile-content>
             <v-list-tile-action>
-              <v-btn icon ripple>
-                <v-icon color="grey lighten-1">info</v-icon>
+              <v-btn icon ripple @click="dbUpdate(td)">
+                <v-icon :color="td.done ? 'success' : 'secondary'">check</v-icon>
+              </v-btn>
+              <v-btn icon ripple @click="dbDelete(td._id)">
+                <v-icon color="error">delete</v-icon>
               </v-btn>
             </v-list-tile-action>
           </v-list-tile>
@@ -44,7 +44,7 @@
       </v-list>
     </v-flex>
     <v-btn
-        color="primary"
+        color="pink"
         dark
         fab
         fixed
@@ -149,8 +149,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" flat @click.native="dialog = false">Close</v-btn>
-          <v-btn color="blue darken-1" flat @click.native="save()">Save</v-btn>
+          <v-btn color="blue darken-1" flat @click.native="dialog = false">취소</v-btn>
+          <v-btn color="blue darken-1" flat @click.native="dbCreate()">저장</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -199,6 +199,9 @@
         }
       }
     },
+    mounted () {
+      this.dbRead()
+    },
     computed: {
       dt2date () {
         if (!this.date || !this.time) return null
@@ -212,7 +215,14 @@
         this.snackbar.color = cl
         this.snackbar.timeOut = t
       },
-      save () {
+      fromNow (rt) {
+        return this.$moment(rt).fromNow()
+      },
+      openDialog () {
+        this.$refs.form.reset()
+        this.dialog = true
+      },
+      dbCreate () {
         this.dialog = false
         const td = {
           rt: new Date(),
@@ -222,15 +232,31 @@
           content: this.form.content,
           done: false
         }
-        this.todos.push(td)
-        this.pop('잘 등록 되었습니다.', 'success', 5000)
+        if (!this.$refs.form.validate()) return this.pop('값이 유효하지 않습니다', 'error', 60000)
+        this.$db.insert(td, (err) => {
+          if (err) return this.pop(err.message, 'error', 60000)
+          this.dbRead()
+          this.pop('저장 성공', 'success', 5000)
+        })
       },
-      fromNow (rt) {
-        return this.$moment(rt).fromNow()
+      dbRead () {
+        this.$db.find({}, (err, rs) => {
+          if (err) return this.pop(err.message, 'error', 60000)
+          this.todos = rs
+        })
       },
-      openDialog () {
-        this.$refs.form.reset()
-        this.dialog = true
+      dbUpdate (td) {
+        this.$db.update({ _id: td._id }, { $set: { done: !td.done } }, (err) => {
+          if (err) return this.pop(err.message, 'error', 60000)
+          this.dbRead()
+        })
+      },
+      dbDelete (_id) {
+        this.$db.remove({ _id }, (err) => {
+          if (err) return this.pop(err.message, 'error', 60000)
+          this.dbRead()
+          this.pop('삭제 성공', 'success', 5000)
+        })
       }
     }
   }
